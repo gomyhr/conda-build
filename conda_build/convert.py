@@ -192,14 +192,14 @@ path_mapping_identity = [
 pyver_re = re.compile(r'python\s+(?:(?:[<>=]*)(\d.\d))?')
 
 
-def get_pure_py_file_map(t, platform):
+def get_pure_py_file_map(t, platform, quiet=False):
     info = json.loads(t.extractfile('info/index.json').read().decode('utf-8'))
     source_plat = info['platform']
     source_type = 'unix' if source_plat in {'osx', 'linux'} else 'win'
     dest_plat, dest_arch = platform.split('-')
     dest_type = 'unix' if dest_plat in {'osx', 'linux'} else 'win'
 
-    files = t.extractfile('info/files').read().decode("utf-8")
+    files = t.extractfile('info/files').read().decode("utf-8").splitlines()
 
     if source_type == 'unix' and dest_type == 'win':
         mapping = path_mapping_unix_windows
@@ -268,7 +268,13 @@ def get_pure_py_file_map(t, platform):
                 assert member.path == oldpath
                 file_map[oldpath] = None
                 file_map[newpath] = newmember
-                files = files.replace(oldpath, newpath)
+                try:
+                    loc = files.index(oldpath)
+                    files[loc] = newpath
+                except ValueError:
+                    if not quiet:
+                        print(("WARNING: Ignoring file not present in "
+                              "info/files: %s") % oldpath)
             else:
                 file_map[oldpath] = member
 
@@ -288,9 +294,9 @@ def get_pure_py_file_map(t, platform):
                     newmember.size = len(data)
                     file_map[newpath] = newmember, bytes_io(data)
                     batseen.add(oldpath)
-                    files = files + newpath + "\n"
+                    files.append(newpath)
 
-    files = '\n'.join(sorted(files.splitlines())) + '\n'
+    files = '\n'.join(sorted(files)) + '\n'
     if PY3:
         files = bytes(files, 'utf-8')
     filemember.size = len(files)
@@ -364,7 +370,7 @@ def conda_convert(file_path, output_dir=".", show_imports=False, platforms=None,
                       (file_path, info['platform'], platform), file=sys.stderr)
                 continue
 
-            file_map = get_pure_py_file_map(t, platform)
+            file_map = get_pure_py_file_map(t, platform, quiet=quiet)
 
             if dry_run:
                 if not quiet:
