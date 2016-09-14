@@ -268,7 +268,7 @@ def get_pure_py_file_map(t, platform):
                 assert member.path == oldpath
                 file_map[oldpath] = None
                 file_map[newpath] = newmember
-                files = files.replace(oldpath, newpath)
+                files = files.replace(oldpath + '\n', newpath + '\n')
             else:
                 file_map[oldpath] = member
 
